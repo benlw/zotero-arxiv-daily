@@ -163,5 +163,12 @@ class Executor:
         if "arxiv" in self.config.executor.source:
             category_info = list(self.config.source.arxiv.get("category", []) or [])
         email_content = render_email(reranked_papers, arxiv_categories=category_info)
+
+        # In debug mode, skip SMTP side effects to keep CI/test runs stable.
+        if bool(self.config.executor.get("debug", False)):
+            logger.info("Debug mode enabled: skip sending email.")
+            logger.debug(f"Email preview (first 1000 chars): {email_content[:1000]}")
+            return
+
         send_email(self.config, email_content)
         logger.info("Email sent successfully")
