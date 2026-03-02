@@ -8,9 +8,20 @@ from email.utils import parseaddr, formataddr
 from loguru import logger
 import datetime
 from omegaconf import DictConfig
-import pymupdf.layout
-pymupdf.layout.activate()
-import pymupdf4llm
+
+# Make PDF extraction robust in restricted CI/runtime environments.
+try:
+    import pymupdf.layout as _pymupdf_layout
+    _pymupdf_layout.activate()
+except Exception as e:
+    logger.warning(f"Failed to activate pymupdf.layout, continue without layout mode: {e}")
+
+try:
+    import pymupdf4llm
+except Exception as e:
+    pymupdf4llm = None
+    logger.warning(f"Failed to import pymupdf4llm, PDF full-text extraction will be skipped: {e}")
+
 def extract_tex_code_from_tar(file_path:str, paper_id:str) -> dict[str,str]:
     try:
         tar = tarfile.open(file_path)
@@ -82,6 +93,8 @@ def extract_tex_code_from_tar(file_path:str, paper_id:str) -> dict[str,str]:
     return file_contents
 
 def extract_markdown_from_pdf(file_path:str) -> str:
+    if pymupdf4llm is None:
+        raise RuntimeError("pymupdf4llm is unavailable")
     return pymupdf4llm.to_markdown(file_path,use_ocr=False,header=False,footer=False,ignore_code=True)
 
 def glob_match(path:str, pattern:str) -> bool:
