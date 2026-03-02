@@ -6,7 +6,7 @@ zotero:
 source:
   arxiv:
     category: null # The categories of target arxiv papers. If null and auto_category_from_zotero=true, categories will be inferred from Zotero corpus.
-    required_categories: [] # Always include these categories (merged with configured/inferred categories).
+    required_categories: ["math.OC", "eess.SY", "cs.RO", "cs.LG", "cs.MA", "math.DS", "math.DG"] # Always include these categories (merged with configured/inferred categories).
     interest_profile: null # Optional free-text research interests to improve category inference.
   biorxiv:
     category: null # The categories of target biorxiv papers. Find categories from [here](https://www.biorxiv.org/). Example: ["biochemistry","animal behavior and cognition"]

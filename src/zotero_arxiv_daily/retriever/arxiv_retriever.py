@@ -18,7 +18,7 @@ class ArxivRetriever(BaseRetriever):
         categories = self.config.source.arxiv.get("category", None)
         if not categories:
             required = list(self.config.source.arxiv.get("required_categories", []) or [])
-            fallback = required or ["cs.AI", "cs.LG", "cs.RO"]
+            fallback = required or ["math.OC", "eess.SY", "cs.RO", "cs.LG", "cs.MA", "math.DS", "math.DG"]
             self.config.source.arxiv.category = fallback
             logger.info(f"ArxivRetriever fallback categories: {fallback}")
 
