@@ -2,7 +2,7 @@ from .base import BaseRetriever, register_retriever
 import arxiv
 from arxiv import Result as ArxivResult
 from ..protocol import Paper
-from ..utils import extract_markdown_from_pdf
+from ..utils import extract_markdown_from_pdf, extract_text_from_arxiv_html
 from tempfile import TemporaryDirectory
 import feedparser
 from urllib.request import urlretrieve
@@ -44,19 +44,24 @@ class ArxivRetriever(BaseRetriever):
         abstract = raw_paper.summary
         pdf_url = raw_paper.pdf_url
 
-        # Optional full-text extraction from PDF.
+        # Optional full-text extraction.
         # Default OFF to keep CI stable and fast.
         extract_full_text = bool(self.config.executor.get("extract_full_text", False))
+        full_text_source = str(self.config.executor.get("full_text_source", "html")).lower()
         full_text = None
         if extract_full_text:
-            with TemporaryDirectory() as temp_dir:
-                path = os.path.join(temp_dir, "paper.pdf")
-                urlretrieve(pdf_url, path)
-                try:
-                    full_text = extract_markdown_from_pdf(path)
-                except Exception as e:
-                    logger.warning(f"Failed to extract full text of {title}: {e}")
-                    full_text = None
+            try:
+                if full_text_source == "html":
+                    html_url = raw_paper.entry_id.replace("/abs/", "/html/")
+                    full_text = extract_text_from_arxiv_html(html_url)
+                else:
+                    with TemporaryDirectory() as temp_dir:
+                        path = os.path.join(temp_dir, "paper.pdf")
+                        urlretrieve(pdf_url, path)
+                        full_text = extract_markdown_from_pdf(path)
+            except Exception as e:
+                logger.warning(f"Failed to extract full text ({full_text_source}) of {title}: {e}")
+                full_text = None
 
         return Paper(
             source=self.name,

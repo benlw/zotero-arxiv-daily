@@ -23,4 +23,6 @@ source:
 
 executor:
   debug: ${oc.env:DEBUG,null}
+  extract_full_text: false
+  full_text_source: html
   source: ['arxiv']

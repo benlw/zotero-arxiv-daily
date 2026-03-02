@@ -2,6 +2,8 @@ import tarfile
 import re
 import glob
 import smtplib
+from urllib.request import urlopen
+from html import unescape
 from email.header import Header
 from email.mime.text import MIMEText
 from email.utils import parseaddr, formataddr
@@ -96,6 +98,19 @@ def extract_markdown_from_pdf(file_path:str) -> str:
     if pymupdf4llm is None:
         raise RuntimeError("pymupdf4llm is unavailable")
     return pymupdf4llm.to_markdown(file_path,use_ocr=False,header=False,footer=False,ignore_code=True)
+
+def extract_text_from_arxiv_html(html_url:str) -> str:
+    with urlopen(html_url, timeout=20) as resp:
+        html = resp.read().decode("utf-8", errors="ignore")
+
+    # Remove scripts/styles and all tags, keep plain text.
+    html = re.sub(r"<script[\\s\\S]*?</script>", " ", html, flags=re.IGNORECASE)
+    html = re.sub(r"<style[\\s\\S]*?</style>", " ", html, flags=re.IGNORECASE)
+    text = re.sub(r"<[^>]+>", " ", html)
+    text = unescape(text)
+    text = re.sub(r"\s+", " ", text).strip()
+    # Cap to avoid huge prompts downstream.
+    return text[:50000]
 
 def glob_match(path:str, pattern:str) -> bool:
     re_pattern = glob.translate(pattern,recursive=True)
