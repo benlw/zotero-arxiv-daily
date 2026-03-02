@@ -11,6 +11,8 @@ from .construct_email import render_email
 from .utils import send_email
 from openai import OpenAI
 from tqdm import tqdm
+from collections import Counter
+
 class Executor:
     def __init__(self, config:DictConfig):
         self.config = config
@@ -56,6 +58,64 @@ class Executor:
         logger.info(f"Selected {len(new_corpus)} zotero papers:\n{samples}\n...")
         return new_corpus
 
+    def infer_arxiv_categories(self, corpus:list[CorpusPaper]) -> list[str]:
+        keyword_to_categories = {
+            # geometric mechanics / control
+            "geometric": ["math.OC", "eess.SY", "cs.RO"],
+            "lagrangian": ["math.OC", "eess.SY"],
+            "hamilton": ["math.OC", "math.DS"],
+            "integrator": ["math.NA", "math.OC"],
+            "stabilization": ["math.OC", "eess.SY"],
+            "nonlinear control": ["eess.SY", "math.OC"],
+            # robotics / multibody / soft
+            "robot": ["cs.RO"],
+            "robotics": ["cs.RO"],
+            "soft robot": ["cs.RO"],
+            "multibody": ["cs.RO", "eess.SY"],
+            "flexible": ["cs.RO", "eess.SY"],
+            "swarm": ["cs.MA", "cs.RO", "cs.LG"],
+            "multi-agent": ["cs.MA", "cs.LG"],
+            # learning
+            "physics-informed": ["cs.LG"],
+            "reinforcement learning": ["cs.LG", "cs.MA"],
+            "learning": ["cs.LG"],
+        }
+
+        hint = str(self.config.source.arxiv.get("interest_profile", "") or "")
+        text_chunks = [hint.lower()]
+        text_chunks.extend([(c.title + " " + c.abstract).lower() for c in corpus])
+        full_text = "\n".join(text_chunks)
+
+        scores = Counter()
+        for kw, cats in keyword_to_categories.items():
+            hit = full_text.count(kw)
+            if hit <= 0:
+                continue
+            for cat in cats:
+                scores[cat] += hit
+
+        # Fallback for general CS discovery.
+        if not scores:
+            return ["cs.AI", "cs.LG", "cs.RO"]
+
+        ranked = [cat for cat, _ in scores.most_common()]
+        # Keep top 4 categories for manageable query size.
+        return ranked[:4]
+
+    def maybe_autofill_arxiv_categories(self, corpus:list[CorpusPaper]):
+        has_arxiv = "arxiv" in self.config.executor.source
+        if not has_arxiv:
+            return
+
+        current = self.config.source.arxiv.get("category", None)
+        auto_enabled = bool(self.config.executor.get("auto_category_from_zotero", True))
+        if current or (not auto_enabled):
+            return
+
+        inferred = self.infer_arxiv_categories(corpus)
+        self.config.source.arxiv.category = inferred
+        logger.info(f"Auto-inferred arXiv categories from Zotero/profile: {inferred}")
+
     
     def run(self):
         corpus = self.fetch_zotero_corpus()
@@ -63,6 +123,8 @@ class Executor:
         if len(corpus) == 0:
             logger.error(f"No zotero papers found. Please check your zotero settings:\n{self.config.zotero}")
             return
+
+        self.maybe_autofill_arxiv_categories(corpus)
         all_papers = []
         for source, retriever in self.retrievers.items():
             logger.info(f"Retrieving {source} papers...")

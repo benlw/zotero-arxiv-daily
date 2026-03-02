@@ -15,14 +15,16 @@ llm:
     key: ${oc.env:OPENAI_API_KEY}
     base_url: ${oc.env:OPENAI_API_BASE}
   generation_kwargs:
-    model: gpt-4o-mini
+    model: deepseek-ai/DeepSeek-V3.2
 
 source:
   arxiv:
-    category: ["cs.AI","cs.CV","cs.LG","cs.CL"]
+    category: null
+    interest_profile: "My research focuses on structure-preserving numerical integrators, controlled Lagrangian methods for nonlinear and infinite-dimensional systems, and geometric modeling for practical stabilization problems. Computational geometric mechanics and control (modeling and control of flexible multibody dynamic systems); soft robotics; Physics-informed learning; flexible swarms (multi-agent reinforcement learning)."
 
 executor:
   debug: ${oc.env:DEBUG,null}
-  extract_full_text: false
+  auto_category_from_zotero: true
+  extract_full_text: true
   full_text_source: html
   source: ['arxiv']
