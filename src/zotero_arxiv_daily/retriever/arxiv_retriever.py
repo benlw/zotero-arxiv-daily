@@ -43,14 +43,21 @@ class ArxivRetriever(BaseRetriever):
         authors = [a.name for a in raw_paper.authors]
         abstract = raw_paper.summary
         pdf_url = raw_paper.pdf_url
-        with TemporaryDirectory() as temp_dir:
-            path = os.path.join(temp_dir, "paper.pdf")
-            urlretrieve(pdf_url, path)
-            try:
-                full_text = extract_markdown_from_pdf(path)
-            except Exception as e:
-                logger.warning(f"Failed to extract full text of {title}: {e}")
-                full_text = None
+
+        # Optional full-text extraction from PDF.
+        # Default OFF to keep CI stable and fast.
+        extract_full_text = bool(self.config.executor.get("extract_full_text", False))
+        full_text = None
+        if extract_full_text:
+            with TemporaryDirectory() as temp_dir:
+                path = os.path.join(temp_dir, "paper.pdf")
+                urlretrieve(pdf_url, path)
+                try:
+                    full_text = extract_markdown_from_pdf(path)
+                except Exception as e:
+                    logger.warning(f"Failed to extract full text of {title}: {e}")
+                    full_text = None
+
         return Paper(
             source=self.name,
             title=title,
