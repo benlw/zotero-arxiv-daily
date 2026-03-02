@@ -13,11 +13,17 @@ from loguru import logger
 class ArxivRetriever(BaseRetriever):
     def __init__(self, config):
         super().__init__(config)
+        # Keep retriever usable in direct unit tests / standalone calls.
+        # Executor may auto-infer categories, but retriever can also fallback safely.
+        categories = self.config.source.arxiv.get("category", None)
+        if not categories:
+            required = list(self.config.source.arxiv.get("required_categories", []) or [])
+            fallback = required or ["cs.AI", "cs.LG", "cs.RO"]
+            self.config.source.arxiv.category = fallback
+            logger.info(f"ArxivRetriever fallback categories: {fallback}")
 
     def _retrieve_raw_papers(self) -> list[ArxivResult]:
         categories = self.config.source.arxiv.category
-        if not categories:
-            raise ValueError("category must be specified for arxiv (or enable auto category inference).")
         client = arxiv.Client(num_retries=10,delay_seconds=10)
         query = '+'.join(categories)
         # Get the latest paper from arxiv rss feed
