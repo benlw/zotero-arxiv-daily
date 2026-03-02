@@ -107,14 +107,25 @@ class Executor:
         if not has_arxiv:
             return
 
+        required = list(self.config.source.arxiv.get("required_categories", []) or [])
         current = self.config.source.arxiv.get("category", None)
         auto_enabled = bool(self.config.executor.get("auto_category_from_zotero", True))
-        if current or (not auto_enabled):
+
+        # Case 1: user already provided categories; merge required ones.
+        if current:
+            merged = list(dict.fromkeys(list(current) + required))
+            self.config.source.arxiv.category = merged
+            logger.info(f"Using configured arXiv categories (with required merged): {merged}")
+            return
+
+        # Case 2: auto disabled and no categories.
+        if not auto_enabled:
             return
 
         inferred = self.infer_arxiv_categories(corpus)
-        self.config.source.arxiv.category = inferred
-        logger.info(f"Auto-inferred arXiv categories from Zotero/profile: {inferred}")
+        merged = list(dict.fromkeys(inferred + required))
+        self.config.source.arxiv.category = merged
+        logger.info(f"Auto-inferred arXiv categories from Zotero/profile: {merged}")
 
     
     def run(self):
@@ -148,6 +159,9 @@ class Executor:
             logger.info("No new papers found. No email will be sent.")
             return
         logger.info("Sending email...")
-        email_content = render_email(reranked_papers)
+        category_info = None
+        if "arxiv" in self.config.executor.source:
+            category_info = list(self.config.source.arxiv.get("category", []) or [])
+        email_content = render_email(reranked_papers, arxiv_categories=category_info)
         send_email(self.config, email_content)
         logger.info("Email sent successfully")

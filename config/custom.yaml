@@ -20,6 +20,7 @@ llm:
 source:
   arxiv:
     category: null
+    required_categories: ["eess.SY", "math.DG", "math.DS"]
     interest_profile: "My research focuses on structure-preserving numerical integrators, controlled Lagrangian methods for nonlinear and infinite-dimensional systems, and geometric modeling for practical stabilization problems. Computational geometric mechanics and control (modeling and control of flexible multibody dynamic systems); soft robotics; Physics-informed learning; flexible swarms (multi-agent reinforcement learning)."
 
 executor:

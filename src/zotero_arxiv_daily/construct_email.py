@@ -104,10 +104,18 @@ def get_stars(score:float):
         return '<div class="star-wrapper">'+full_star * full_star_num + half_star * half_star_num + '</div>'
 
 
-def render_email(papers:list[Paper]) -> str:
+def render_email(papers:list[Paper], arxiv_categories:list[str]|None=None) -> str:
     parts = []
+    if arxiv_categories:
+        parts.append(
+            '<div style="font-family: Arial, sans-serif; font-size: 14px; color: #444; margin: 8px 0 16px 0;">'
+            '<strong>arXiv Categories Used:</strong> ' + ', '.join(arxiv_categories) +
+            '</div>'
+        )
+
     if len(papers) == 0 :
-        return framework.replace('__CONTENT__', get_empty_html())
+        parts.append(get_empty_html())
+        return framework.replace('__CONTENT__', ''.join(parts))
     
     for p in papers:
         #rate = get_stars(p.score)
