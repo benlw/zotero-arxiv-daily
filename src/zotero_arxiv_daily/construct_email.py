@@ -71,9 +71,9 @@ def _format_summary(text:str|None) -> str:
         if tldr:
             parts.append(f"<strong>摘要：</strong><br>{_nl2br(tldr)}")
         if q1:
-            parts.append(f"<strong>Q1（核心科学问题与难点）：</strong><br>{_nl2br(q1)}")
+            parts.append(f"<strong>Q1 核心科学问题与难点：</strong><br>{_nl2br(q1)}")
         if q2:
-            parts.append(f"<strong>Q2（理论基础与推进）：</strong><br>{_nl2br(q2)}")
+            parts.append(f"<strong>Q2 理论基础与推进：</strong><br>{_nl2br(q2)}")
         return "<br><br>".join(parts)
 
     return _nl2br(raw)
