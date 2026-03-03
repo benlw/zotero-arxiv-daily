@@ -35,4 +35,4 @@ jobs:
             echo "CUSTOM_CONFIG is empty, fallback to committed config/custom.yaml:"
           fi
           cat config/custom.yaml
-          uv run src/zotero_arxiv_daily/main.py
+          uv run src/zotero_arxiv_daily/main.py executor.max_paper_num=20 llm.language=Chinese

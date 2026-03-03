@@ -16,6 +16,7 @@ llm:
     base_url: ${oc.env:OPENAI_API_BASE}
   generation_kwargs:
     model: deepseek-ai/DeepSeek-V3.2
+  language: Chinese
 
 source:
   arxiv:

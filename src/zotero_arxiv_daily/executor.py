@@ -225,7 +225,6 @@ class Executor:
         email_content = render_email(
             reranked_papers,
             arxiv_categories=category_info,
-            interest_profile=self.config.source.arxiv.get("interest_profile", None) if "arxiv" in self.config.executor.source else None,
             top_k_highlights=int(self.config.executor.get("highlight_top_k", 3)),
         )
 

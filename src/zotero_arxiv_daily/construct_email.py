@@ -1,6 +1,5 @@
 from .protocol import Paper
 import math
-import re
 
 
 framework = """
@@ -59,25 +58,7 @@ def _nl2br(text:str|None) -> str:
     return text.replace("\n", "<br>")
 
 
-def _tokenize_keywords(text:str|None) -> list[str]:
-    if not text:
-        return []
-    return [t.lower() for t in re.findall(r"[A-Za-z][A-Za-z\-]{2,}", text)]
-
-
-def _relevance_reason(paper:Paper, interest_profile:str|None) -> str:
-    if not interest_profile:
-        return "与您的近期研究兴趣存在方法或应用层面的交叉，具备跟进价值。"
-    interest = set(_tokenize_keywords(interest_profile))
-    paper_text = " ".join([paper.title or "", paper.abstract or ""]).lower()
-    hits = [k for k in interest if k in paper_text]
-    if hits:
-        shown = ", ".join(sorted(hits)[:4])
-        return f"关键词与您的兴趣画像重合（{shown}），因此该文与现有研究路径相关。"
-    return "该文虽非同主题直击，但在方法论或问题设定上对您的方向有借鉴意义。"
-
-
-def get_block_html(title:str, authors:str, rate:str, tldr:str, pdf_url:str, affiliations:str=None, relevance_reason:str|None=None, code_url:str|None=None):
+def get_block_html(title:str, authors:str, rate:str, tldr:str, pdf_url:str, affiliations:str=None, code_url:str|None=None):
     block_template = """
     <table border="0" cellpadding="0" cellspacing="0" width="100%" style="font-family: Arial, sans-serif; border: 1px solid #ddd; border-radius: 8px; padding: 16px; background-color: #f9f9f9;">
     <tr>
@@ -95,8 +76,6 @@ def get_block_html(title:str, authors:str, rate:str, tldr:str, pdf_url:str, affi
     <tr>
         <td style="font-size: 14px; color: #333; padding: 8px 0;">
             <strong>Relevance:</strong> {rate}
-            <br>
-            <strong>Why relevant:</strong> {relevance_reason}
         </td>
     </tr>
     <tr>
@@ -124,7 +103,6 @@ def get_block_html(title:str, authors:str, rate:str, tldr:str, pdf_url:str, affi
         tldr=_nl2br(tldr),
         pdf_url=pdf_url,
         affiliations=affiliations,
-        relevance_reason=relevance_reason or "",
         code_link=code_link,
     )
 
@@ -148,7 +126,6 @@ def get_stars(score:float):
 def render_email(
     papers:list[Paper],
     arxiv_categories:list[str]|None=None,
-    interest_profile:str|None=None,
     top_k_highlights:int=3,
 ) -> str:
     parts = []
@@ -179,8 +156,7 @@ def render_email(
                 affiliations += ', ...'
         else:
             affiliations = 'Unknown Affiliation'
-        relevance_reason = _relevance_reason(p, interest_profile)
-        return get_block_html(p.title, authors, rate, p.tldr, p.pdf_url, affiliations, relevance_reason, p.code_url)
+        return get_block_html(p.title, authors, rate, p.tldr, p.pdf_url, affiliations, p.code_url)
 
     highlights = papers[:max(0, top_k_highlights)]
     others = papers[max(0, top_k_highlights):]
@@ -190,11 +166,8 @@ def render_email(
         parts.extend([_paper_card(p) for p in highlights])
 
     if others:
-        parts.append(
-            f'<details style="font-family: Arial, sans-serif;"><summary style="cursor:pointer; font-weight:bold;">其余论文（{len(others)} 篇，点击展开）</summary><br>'
-            + '</br><br>'.join([_paper_card(p) for p in others])
-            + '</details>'
-        )
+        parts.append(f'<h3 style="font-family: Arial, sans-serif; color:#222;">其余论文（{len(others)} 篇）</h3>')
+        parts.extend([_paper_card(p) for p in others])
 
     content = '<br>' + '</br><br>'.join(parts) + '</br>'
     return framework.replace('__CONTENT__', content)

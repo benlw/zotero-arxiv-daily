@@ -33,8 +33,8 @@ class Paper:
                 "请基于给定论文信息，输出面向“有数学/工程背景但未接触该具体领域”的研究者的学术中文导读。"
                 "请严格按以下结构输出，并控制总长度在 600~800 中文字：\n"
                 "TL;DR：4~6句，说明论文在做什么、主要思路与结果概貌。\n"
-                "Q1（核心科学问题与难点）：6~10句，回答问题本体、关键难点/研究空白。\n"
-                "Q2（理论基础与推进）：6~10句，指出关键理论/文献脉络，以及本文如何推进、修正或拓展。\n"
+                "Q1（核心科学问题与难点）：6~10句，必须给出结论性陈述，不要写反问句。\n"
+                "Q2（理论基础与推进）：6~10句，必须给出结论性陈述，不要写反问句。\n"
                 "要求：术语准确、逻辑紧凑、避免空话，不要编造未给出的实验细节与数字。\n"
                 "术语优先映射（尽量使用以下中文）：\n"
                 "Mechanical systems→力学系统；Mechanical connection→力学联络；Fully actuated/Underactuated→全驱动/欠驱动；\n"
@@ -94,7 +94,11 @@ class Paper:
             return False
         deep_mode = bool(self.full_text)
         if deep_mode:
-            return ("Q1" in text) and ("Q2" in text)
+            has_sections = ("Q1" in text) and ("Q2" in text)
+            # reject question-only placeholders
+            bad_q1 = bool(re.search(r"Q1[^\n]{0,80}[?？]", text))
+            bad_q2 = bool(re.search(r"Q2[^\n]{0,80}[?？]", text))
+            return has_sections and (not bad_q1) and (not bad_q2)
         # abstract-only: should be concise and without Q1/Q2 sections
         if "Q1" in text or "Q2" in text:
             return False
