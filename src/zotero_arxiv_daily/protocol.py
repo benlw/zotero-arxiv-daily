@@ -17,6 +17,7 @@ class Paper:
     url: str
     pdf_url: Optional[str] = None
     full_text: Optional[str] = None
+    code_url: Optional[str] = None
     tldr: Optional[str] = None
     affiliations: Optional[list[str]] = None
     score: Optional[float] = None
@@ -29,12 +30,20 @@ class Paper:
         if zh_mode:
             prompt = (
                 "请基于给定论文信息，输出面向“有数学/工程背景但未接触该具体领域”的研究者的学术中文导读。"
-                "请严格按以下结构输出，并控制总长度在 220~380 中文字：\n"
-                "TL;DR：1~2句，说明论文在做什么。\n"
-                "Q1（核心科学问题与难点）：1~2句，回答问题本体、关键难点/研究空白。\n"
-                "Q2（理论基础与推进）：1~2句，指出关键理论/文献脉络，以及本文如何推进、修正或拓展。\n"
-                "巧妙之处：1句，强调方法设计中最有洞见的点。\n"
-                "要求：术语准确、逻辑紧凑、避免空话，不要编造未给出的实验细节与数字。\n\n"
+                "请严格按以下结构输出，并控制总长度在 600~800 中文字：\n"
+                "TL;DR：4~6句，说明论文在做什么、主要思路与结果概貌。\n"
+                "Q1（核心科学问题与难点）：6~10句，回答问题本体、关键难点/研究空白。\n"
+                "Q2（理论基础与推进）：6~10句，指出关键理论/文献脉络，以及本文如何推进、修正或拓展。\n"
+                "要求：术语准确、逻辑紧凑、避免空话，不要编造未给出的实验细节与数字。\n"
+                "术语优先映射（尽量使用以下中文）：\n"
+                "Mechanical systems→力学系统；Mechanical connection→力学联络；Fully actuated/Underactuated→全驱动/欠驱动；\n"
+                "Holonomic/Nonholonomic→完整/非完整；Lagrange--d'Alembert Principle→Lagrange--d'Alembert原理；\n"
+                "Hamilton's principle→Hamilton原理；Hamilton--Pontryagin Principle→Hamilton--Pontryagin原理；Hamel's formalism→Hamel形式；\n"
+                "Euler--Lagrange Equations→Euler--Lagrange方程；Constraint distribution→约束分布；Virtual displacement/variation→虚位移/变分；\n"
+                "Stabilization→镇定；Control law→控制律；Lyapunov criterion→Lyapunov判据；Moving frame→活动标架；\n"
+                "Distributed moving frame→分布式活动标架；Frame operators→标架算子；Structure-preserving→保结构；\n"
+                "Variational integrator→变分积分子；Diffeomorphism→微分同胚；Lagrangian density→Lagrange 密度；\n"
+                "Artificial viscosity→人工粘性；Nonmaterial velocity→非物质速度。\n\n"
             )
         else:
             prompt = (

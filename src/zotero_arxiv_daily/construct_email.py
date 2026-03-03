@@ -77,7 +77,7 @@ def _relevance_reason(paper:Paper, interest_profile:str|None) -> str:
     return "该文虽非同主题直击，但在方法论或问题设定上对您的方向有借鉴意义。"
 
 
-def get_block_html(title:str, authors:str, rate:str, tldr:str, pdf_url:str, affiliations:str=None, relevance_reason:str|None=None):
+def get_block_html(title:str, authors:str, rate:str, tldr:str, pdf_url:str, affiliations:str=None, relevance_reason:str|None=None, code_url:str|None=None):
     block_template = """
     <table border="0" cellpadding="0" cellspacing="0" width="100%" style="font-family: Arial, sans-serif; border: 1px solid #ddd; border-radius: 8px; padding: 16px; background-color: #f9f9f9;">
     <tr>
@@ -107,11 +107,16 @@ def get_block_html(title:str, authors:str, rate:str, tldr:str, pdf_url:str, affi
 
     <tr>
         <td style="padding: 8px 0;">
-            <a href="{pdf_url}" style="display: inline-block; text-decoration: none; font-size: 14px; font-weight: bold; color: #fff; background-color: #d9534f; padding: 8px 16px; border-radius: 4px;">PDF</a>
+            <a href="{pdf_url}" style="display: inline-block; text-decoration: none; font-size: 14px; font-weight: bold; color: #fff; background-color: #d9534f; padding: 8px 16px; border-radius: 4px; margin-right: 8px;">PDF</a>
+            {code_link}
         </td>
     </tr>
 </table>
 """
+    code_link = ""
+    if code_url:
+        code_link = f'<a href="{code_url}" style="display: inline-block; text-decoration: none; font-size: 14px; font-weight: bold; color: #fff; background-color: #5bc0de; padding: 8px 16px; border-radius: 4px;">Code</a>'
+
     return block_template.format(
         title=title,
         authors=authors,
@@ -120,6 +125,7 @@ def get_block_html(title:str, authors:str, rate:str, tldr:str, pdf_url:str, affi
         pdf_url=pdf_url,
         affiliations=affiliations,
         relevance_reason=relevance_reason or "",
+        code_link=code_link,
     )
 
 def get_stars(score:float):
@@ -174,7 +180,7 @@ def render_email(
         else:
             affiliations = 'Unknown Affiliation'
         relevance_reason = _relevance_reason(p, interest_profile)
-        return get_block_html(p.title, authors, rate, p.tldr, p.pdf_url, affiliations, relevance_reason)
+        return get_block_html(p.title, authors, rate, p.tldr, p.pdf_url, affiliations, relevance_reason, p.code_url)
 
     highlights = papers[:max(0, top_k_highlights)]
     others = papers[max(0, top_k_highlights):]

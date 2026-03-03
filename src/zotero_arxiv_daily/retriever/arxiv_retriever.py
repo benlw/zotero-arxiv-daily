@@ -9,6 +9,7 @@ from urllib.request import urlretrieve
 from tqdm import tqdm
 import os
 from loguru import logger
+import re
 @register_retriever("arxiv")
 class ArxivRetriever(BaseRetriever):
     def __init__(self, config):
@@ -46,6 +47,23 @@ class ArxivRetriever(BaseRetriever):
 
         return raw_papers
 
+    def _extract_code_url(self, raw_paper:ArxivResult) -> str | None:
+        candidates = []
+        summary = getattr(raw_paper, "summary", "") or ""
+        comment = getattr(raw_paper, "comment", "") or ""
+        candidates.extend(re.findall(r"https?://[^\s\]\)\}",]+", summary + "\n" + comment))
+
+        for link in getattr(raw_paper, "links", []) or []:
+            href = getattr(link, "href", None)
+            if href:
+                candidates.append(href)
+
+        for u in candidates:
+            ul = u.lower()
+            if "github.com/" in ul or "gitlab.com/" in ul or "huggingface.co/" in ul or "codeocean.com/" in ul:
+                return u.rstrip(').,]')
+        return None
+
     def convert_to_paper(self, raw_paper:ArxivResult) -> Paper:
         title = raw_paper.title
         authors = [a.name for a in raw_paper.authors]
@@ -78,5 +96,6 @@ class ArxivRetriever(BaseRetriever):
             abstract=abstract,
             url=raw_paper.entry_id,
             pdf_url=pdf_url,
-            full_text=full_text
+            full_text=full_text,
+            code_url=self._extract_code_url(raw_paper),
         )
