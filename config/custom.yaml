@@ -28,4 +28,7 @@ executor:
   auto_category_from_zotero: true
   extract_full_text: true
   full_text_source: html
+  # Top-K papers use full-text deep summary (TL;DR + Q1 + Q2).
+  # Others use abstract-only short TL;DR.
+  deep_fulltext_top_k: 5
   source: ['arxiv']
