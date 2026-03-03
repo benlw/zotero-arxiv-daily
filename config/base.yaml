@@ -53,5 +53,6 @@ executor:
   auto_category_from_zotero: true # If arxiv category is null, infer categories from Zotero corpus + optional interest_profile.
   extract_full_text: false # Whether to extract full text for LLM. Example: true
   full_text_source: html # 'html' (recommended) or 'pdf'
-  source: ??? # The sources of papers to retrieve. Example: ['arxiv','biorxiv','medrxiv']
+  source: ['arxiv'] # Fixed to arXiv for math/control-focused workflow.
+  deep_fulltext_top_k: 5 # Only top-K reranked papers get full-text extraction + deep analysis.
   reranker: local # The reranker to use. Example: 'local' or 'api'

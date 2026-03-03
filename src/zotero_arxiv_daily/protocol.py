@@ -26,8 +26,9 @@ class Paper:
         lang = llm_params.get('language', 'English')
         lang_lower = str(lang).lower()
         zh_mode = any(k in lang_lower for k in ["chinese", "中文", "zh"])
+        deep_mode = bool(self.full_text)
 
-        if zh_mode:
+        if zh_mode and deep_mode:
             prompt = (
                 "请基于给定论文信息，输出面向“有数学/工程背景但未接触该具体领域”的研究者的学术中文导读。"
                 "请严格按以下结构输出，并控制总长度在 600~800 中文字：\n"
@@ -45,14 +46,17 @@ class Paper:
                 "Variational integrator→变分积分子；Diffeomorphism→微分同胚；Lagrangian density→Lagrange 密度；\n"
                 "Artificial viscosity→人工粘性；Nonmaterial velocity→非物质速度。\n\n"
             )
+        elif zh_mode:
+            prompt = (
+                "请基于论文标题与摘要，输出中文 TL;DR。"
+                "要求：4~6句，总长度 220~380 中文字，术语准确、逻辑紧凑、避免空话。"
+                "仅输出 TL;DR 内容，不要输出 Q1/Q2 标题或分节。\n\n"
+            )
         else:
             prompt = (
-                f"Given the following paper information, generate a concise structured summary in {lang} for a reader with strong math/engineering background but new to this subfield.\n"
-                "Format exactly as:\n"
-                "TL;DR: ...\n"
-                "Q1 (core scientific problem & gap): ...\n"
-                "Q2 (foundations & advancement): ...\n"
-                "Key clever insight: ...\n\n"
+                f"Given the following paper information, generate a concise summary in {lang}.\n"
+                "If full text is available, include: TL;DR, Q1, Q2.\n"
+                "If only abstract is available, output TL;DR only.\n\n"
             )
 
         if self.title:
@@ -84,9 +88,27 @@ class Paper:
         tldr = response.choices[0].message.content
         return tldr
     
+    def _is_tldr_valid(self, tldr:str) -> bool:
+        text = (tldr or "").strip()
+        if not text:
+            return False
+        deep_mode = bool(self.full_text)
+        if deep_mode:
+            return ("Q1" in text) and ("Q2" in text)
+        # abstract-only: should be concise and without Q1/Q2 sections
+        if "Q1" in text or "Q2" in text:
+            return False
+        return 180 <= len(text) <= 500
+
     def generate_tldr(self, openai_client:OpenAI,llm_params:dict) -> str:
         try:
-            tldr = self._generate_tldr_with_llm(openai_client,llm_params)
+            max_attempts = 2
+            tldr = None
+            for i in range(max_attempts):
+                tldr = self._generate_tldr_with_llm(openai_client,llm_params)
+                if self._is_tldr_valid(tldr):
+                    break
+                logger.warning(f"TLDR quality check failed ({i+1}/{max_attempts}) for {self.url}, retrying...")
             self.tldr = tldr
             return tldr
         except Exception as e:

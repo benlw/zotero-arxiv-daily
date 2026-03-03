@@ -8,17 +8,23 @@ import random
 from datetime import datetime
 from .reranker import get_reranker_cls
 from .construct_email import render_email
-from .utils import send_email
+from .utils import send_email, extract_text_from_arxiv_html, extract_markdown_from_pdf
 from openai import OpenAI
 from tqdm import tqdm
 from collections import Counter
 import re
+import os
+from tempfile import TemporaryDirectory
+from urllib.request import urlretrieve
 
 class Executor:
     def __init__(self, config:DictConfig):
         self.config = config
+        if list(self.config.executor.source) != ["arxiv"]:
+            logger.info("Force source to ['arxiv'] for this math/control-focused pipeline")
+            self.config.executor.source = ["arxiv"]
         self.retrievers = {
-            source: get_retriever_cls(source)(config) for source in config.executor.source
+            source: get_retriever_cls(source)(config) for source in self.config.executor.source
         }
         self.reranker = get_reranker_cls(config.executor.reranker)(config)
         self.openai_client = OpenAI(api_key=config.llm.api.key, base_url=config.llm.api.base_url)
@@ -156,6 +162,29 @@ class Executor:
             logger.info(f"Deduplicated papers: removed {removed} duplicates")
         return list(kept.values())
 
+    def enrich_full_text_for_topk(self, papers:list):
+        k = int(self.config.executor.get("deep_fulltext_top_k", 5))
+        if k <= 0:
+            return papers
+        full_text_source = str(self.config.executor.get("full_text_source", "html")).lower()
+        top_n = min(k, len(papers))
+        logger.info(f"Enriching full text for top-{top_n} papers via {full_text_source}")
+        for p in papers[:top_n]:
+            try:
+                if full_text_source == "html":
+                    html_url = (p.url or "").replace("/abs/", "/html/")
+                    if html_url:
+                        p.full_text = extract_text_from_arxiv_html(html_url)
+                else:
+                    with TemporaryDirectory() as temp_dir:
+                        path = os.path.join(temp_dir, "paper.pdf")
+                        urlretrieve(p.pdf_url, path)
+                        p.full_text = extract_markdown_from_pdf(path)
+            except Exception as e:
+                logger.warning(f"Failed to enrich full text for {p.title}: {e}")
+                p.full_text = None
+        return papers
+
     def run(self):
         corpus = self.fetch_zotero_corpus()
         corpus = self.filter_corpus(corpus)
@@ -181,6 +210,7 @@ class Executor:
             logger.info("Reranking papers...")
             reranked_papers = self.reranker.rerank(all_papers, corpus)
             reranked_papers = reranked_papers[:self.config.executor.max_paper_num]
+            reranked_papers = self.enrich_full_text_for_topk(reranked_papers)
             logger.info("Generating TLDR and affiliations...")
             for p in tqdm(reranked_papers):
                 p.generate_tldr(self.openai_client, self.config.llm)
