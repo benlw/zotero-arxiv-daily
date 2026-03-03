@@ -23,7 +23,29 @@ class Paper:
 
     def _generate_tldr_with_llm(self, openai_client:OpenAI,llm_params:dict) -> str:
         lang = llm_params.get('language', 'English')
-        prompt = f"Given the following information of a paper, generate a one-sentence TLDR summary in {lang}:\n\n"
+        lang_lower = str(lang).lower()
+        zh_mode = any(k in lang_lower for k in ["chinese", "中文", "zh"])
+
+        if zh_mode:
+            prompt = (
+                "请基于给定论文信息，输出面向“有数学/工程背景但未接触该具体领域”的研究者的学术中文导读。"
+                "请严格按以下结构输出，并控制总长度在 220~380 中文字：\n"
+                "TL;DR：1~2句，说明论文在做什么。\n"
+                "Q1（核心科学问题与难点）：1~2句，回答问题本体、关键难点/研究空白。\n"
+                "Q2（理论基础与推进）：1~2句，指出关键理论/文献脉络，以及本文如何推进、修正或拓展。\n"
+                "巧妙之处：1句，强调方法设计中最有洞见的点。\n"
+                "要求：术语准确、逻辑紧凑、避免空话，不要编造未给出的实验细节与数字。\n\n"
+            )
+        else:
+            prompt = (
+                f"Given the following paper information, generate a concise structured summary in {lang} for a reader with strong math/engineering background but new to this subfield.\n"
+                "Format exactly as:\n"
+                "TL;DR: ...\n"
+                "Q1 (core scientific problem & gap): ...\n"
+                "Q2 (foundations & advancement): ...\n"
+                "Key clever insight: ...\n\n"
+            )
+
         if self.title:
             prompt += f"Title:\n {self.title}\n\n"
         if self.full_text:
@@ -33,18 +55,18 @@ class Paper:
         else:
             logger.warning(f"Neither full text nor abstract is provided for {self.url}")
             return "Failed to generate TLDR. Neither full text nor abstract is provided"
-        
+
         # use gpt-4o tokenizer for estimation
         enc = tiktoken.encoding_for_model("gpt-4o")
         prompt_tokens = enc.encode(prompt)
         prompt_tokens = prompt_tokens[:4000]  # truncate to 4000 tokens
         prompt = enc.decode(prompt_tokens)
-        
+
         response = openai_client.chat.completions.create(
             messages=[
                 {
                     "role": "system",
-                    "content": f"You are an assistant who perfectly summarizes scientific paper, and gives the core idea of the paper to the user. Your answer should be in {lang}.",
+                    "content": f"You are a rigorous scientific writing assistant. Keep outputs precise and faithful to evidence. Use {lang}.",
                 },
                 {"role": "user", "content": prompt},
             ],

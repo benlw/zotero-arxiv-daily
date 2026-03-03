@@ -12,6 +12,7 @@ from .utils import send_email
 from openai import OpenAI
 from tqdm import tqdm
 from collections import Counter
+import re
 
 class Executor:
     def __init__(self, config:DictConfig):
@@ -128,6 +129,33 @@ class Executor:
         logger.info(f"Auto-inferred arXiv categories from Zotero/profile: {merged}")
 
     
+    def _canonical_key(self, p):
+        url = (p.url or "").lower().strip()
+        m = re.search(r"(\d{4}\.\d{4,5})(v\d+)?", url)
+        if m:
+            return f"arxiv:{m.group(1)}"
+        title = re.sub(r"\s+", " ", (p.title or "").lower()).strip()
+        return f"title:{title}" if title else url
+
+    def deduplicate_papers(self, papers:list):
+        if not papers:
+            return papers
+        kept = {}
+        for p in papers:
+            key = self._canonical_key(p)
+            if key not in kept:
+                kept[key] = p
+                continue
+            old = kept[key]
+            old_len = len((old.full_text or old.abstract or ""))
+            new_len = len((p.full_text or p.abstract or ""))
+            if new_len > old_len:
+                kept[key] = p
+        removed = len(papers) - len(kept)
+        if removed > 0:
+            logger.info(f"Deduplicated papers: removed {removed} duplicates")
+        return list(kept.values())
+
     def run(self):
         corpus = self.fetch_zotero_corpus()
         corpus = self.filter_corpus(corpus)
@@ -146,6 +174,8 @@ class Executor:
             logger.info(f"Retrieved {len(papers)} {source} papers")
             all_papers.extend(papers)
         logger.info(f"Total {len(all_papers)} papers retrieved from all sources")
+        all_papers = self.deduplicate_papers(all_papers)
+        logger.info(f"Total {len(all_papers)} papers after deduplication")
         reranked_papers = []
         if len(all_papers) > 0:
             logger.info("Reranking papers...")
@@ -162,7 +192,12 @@ class Executor:
         category_info = None
         if "arxiv" in self.config.executor.source:
             category_info = list(self.config.source.arxiv.get("category", []) or [])
-        email_content = render_email(reranked_papers, arxiv_categories=category_info)
+        email_content = render_email(
+            reranked_papers,
+            arxiv_categories=category_info,
+            interest_profile=self.config.source.arxiv.get("interest_profile", None) if "arxiv" in self.config.executor.source else None,
+            top_k_highlights=int(self.config.executor.get("highlight_top_k", 3)),
+        )
 
         # In debug mode, skip SMTP side effects to keep CI/test runs stable.
         if bool(self.config.executor.get("debug", False)):

@@ -9,6 +9,7 @@ from email.mime.text import MIMEText
 from email.utils import parseaddr, formataddr
 from loguru import logger
 import datetime
+import time
 from omegaconf import DictConfig
 
 # Make PDF extraction robust in restricted CI/runtime environments.
@@ -116,12 +117,29 @@ def glob_match(path:str, pattern:str) -> bool:
     re_pattern = glob.translate(pattern,recursive=True)
     return re.match(re_pattern, path) is not None
 
+def _build_smtp_server(smtp_server:str, smtp_port:int):
+    try:
+        server = smtplib.SMTP(smtp_server, smtp_port, timeout=20)
+        server.starttls()
+        return server
+    except Exception as e:
+        logger.debug(f"Failed to use TLS. {e} | try SSL")
+    try:
+        return smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=20)
+    except Exception as e:
+        logger.debug(f"Failed to use SSL. {e} | try plain SMTP")
+    return smtplib.SMTP(smtp_server, smtp_port, timeout=20)
+
+
 def send_email(config:DictConfig, html:str):
     sender = config.email.sender
     receiver = config.email.receiver
     password = config.email.sender_password
     smtp_server = config.email.smtp_server
     smtp_port = config.email.smtp_port
+    retry = int(config.email.get("retry_times", 3))
+    retry_interval = float(config.email.get("retry_interval_sec", 3.0))
+
     def _format_addr(s):
         name, addr = parseaddr(s)
         return formataddr((Header(name, 'utf-8').encode(), addr))
@@ -132,17 +150,25 @@ def send_email(config:DictConfig, html:str):
     today = datetime.datetime.now().strftime('%Y/%m/%d')
     msg['Subject'] = Header(f'Daily arXiv {today}', 'utf-8').encode()
 
-    try:
-        server = smtplib.SMTP(smtp_server, smtp_port)
-        server.starttls()
-    except Exception as e:
-        logger.debug(f"Failed to use TLS. {e}\nTry to use SSL.")
+    last_err = None
+    for i in range(1, retry + 1):
+        server = None
         try:
-            server = smtplib.SMTP_SSL(smtp_server, smtp_port)
+            server = _build_smtp_server(smtp_server, smtp_port)
+            server.login(sender, password)
+            server.sendmail(sender, [receiver], msg.as_string())
+            logger.info(f"Email sent successfully on attempt {i}/{retry}")
+            return
         except Exception as e:
-            logger.debug(f"Failed to use SSL. {e}\nTry to use plain text.")
-            server = smtplib.SMTP(smtp_server, smtp_port)
+            last_err = e
+            logger.warning(f"Send email failed on attempt {i}/{retry}: {e}")
+            if i < retry:
+                time.sleep(retry_interval)
+        finally:
+            if server is not None:
+                try:
+                    server.quit()
+                except Exception:
+                    pass
 
-    server.login(sender, password)
-    server.sendmail(sender, [receiver], msg.as_string())
-    server.quit()
+    raise RuntimeError(f"Failed to send email after {retry} attempts: {last_err}")

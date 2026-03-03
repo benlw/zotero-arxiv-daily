@@ -19,6 +19,8 @@ email:
   smtp_server: ??? # The SMTP server that sends the email. Ask your email provider (Gmail, QQ, Outlook, ...) for its SMTP server. Example: smtp.qq.com
   smtp_port: ??? # The port of SMTP server. Example: 465
   sender_password: ??? # The password of the sender account. Note that it's not necessarily the password for logging in the e-mail client, but the authentication code for SMTP service. Ask your email provider for this. Example: abcdefghijklmn
+  retry_times: 3 # Retry times when SMTP send fails.
+  retry_interval_sec: 3.0 # Interval between SMTP retries.
 
 llm:
   api:
@@ -47,6 +49,7 @@ executor:
   send_empty: false # Whether to send an empty email even if no new papers today. Example: true
   max_workers: 10 # Concurrent workers for processing papers. Example: 10
   max_paper_num: 100 # The maximum number of the papers presented in the email. Example: 100
+  highlight_top_k: 3 # Number of highlighted papers shown before the collapsible remainder section.
   auto_category_from_zotero: true # If arxiv category is null, infer categories from Zotero corpus + optional interest_profile.
   extract_full_text: false # Whether to extract full text for LLM. Example: true
   full_text_source: html # 'html' (recommended) or 'pdf'
