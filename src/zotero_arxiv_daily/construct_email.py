@@ -1,5 +1,6 @@
 from .protocol import Paper
 import math
+import re
 
 
 framework = """
@@ -48,6 +49,36 @@ def _nl2br(text:str|None) -> str:
     return text.replace("\n", "<br>")
 
 
+def _clean_md(text:str) -> str:
+    text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
+    text = re.sub(r"`([^`]+)`", r"\1", text)
+    return text.strip()
+
+
+def _format_summary(text:str|None) -> str:
+    raw = _clean_md(text or "")
+    raw = re.sub(r"^\s*TL\s*;?\s*DR\s*[:：]?\s*", "", raw, flags=re.IGNORECASE)
+
+    # Try to split TLDR / Q1 / Q2 explicitly when present
+    q1m = re.search(r"(?:^|\n)\s*Q1[^\n:：]*[:：]?", raw, flags=re.IGNORECASE)
+    q2m = re.search(r"(?:^|\n)\s*Q2[^\n:：]*[:：]?", raw, flags=re.IGNORECASE)
+
+    if q1m and q2m and q1m.start() < q2m.start():
+        tldr = raw[:q1m.start()].strip()
+        q1 = raw[q1m.end():q2m.start()].strip()
+        q2 = raw[q2m.end():].strip()
+        parts = []
+        if tldr:
+            parts.append(f"<strong>摘要：</strong><br>{_nl2br(tldr)}")
+        if q1:
+            parts.append(f"<strong>Q1（核心科学问题与难点）：</strong><br>{_nl2br(q1)}")
+        if q2:
+            parts.append(f"<strong>Q2（理论基础与推进）：</strong><br>{_nl2br(q2)}")
+        return "<br><br>".join(parts)
+
+    return _nl2br(raw)
+
+
 def get_block_html(title:str, authors:str, rate:str, tldr:str, pdf_url:str, affiliations:str=None, code_url:str|None=None):
     block_template = """
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="font-family:Arial,Helvetica,sans-serif;border:1px solid #e6ebf2;border-radius:8px;background:#fbfcfe;margin:0 0 12px 0;">
@@ -61,7 +92,7 @@ def get_block_html(title:str, authors:str, rate:str, tldr:str, pdf_url:str, affi
         <td style="padding:0 12px 8px 12px;font-size:13px;color:#374151;"><strong>Relevance:</strong> {rate}</td>
       </tr>
       <tr>
-        <td style="padding:0 12px 10px 12px;font-size:14px;line-height:1.75;color:#111827;"><strong>TL;DR</strong><br>{tldr}</td>
+        <td style="padding:0 12px 10px 12px;font-size:14px;line-height:1.75;color:#111827;">{tldr}</td>
       </tr>
       <tr>
         <td style="padding:0 12px 12px 12px;">
@@ -79,7 +110,7 @@ def get_block_html(title:str, authors:str, rate:str, tldr:str, pdf_url:str, affi
         title=title,
         authors=authors,
         rate=rate,
-        tldr=_nl2br(tldr),
+        tldr=_format_summary(tldr),
         pdf_url=pdf_url,
         affiliations=affiliations,
         code_link=code_link,
@@ -143,16 +174,8 @@ def render_email(
             affiliations = 'Unknown Affiliation'
         return get_block_html(p.title, authors, rate, p.tldr, p.pdf_url, affiliations, p.code_url)
 
-    highlights = papers[:max(0, top_k_highlights)]
-    others = papers[max(0, top_k_highlights):]
-
-    if highlights:
-        parts.append('<h3 style="font-family:Arial,Helvetica,sans-serif;color:#111827;font-size:16px;margin:8px 0;">今日重点论文</h3>')
-        parts.extend([_paper_card(p) for p in highlights])
-
-    if others:
-        parts.append(f'<h3 style="font-family:Arial,Helvetica,sans-serif;color:#111827;font-size:16px;margin:8px 0;">其余论文（{len(others)} 篇）</h3>')
-        parts.extend([_paper_card(p) for p in others])
+    # Keep a flat list for better compatibility and cleaner reading in email clients.
+    parts.extend([_paper_card(p) for p in papers])
 
     content = '<br>' + '</br><br>'.join(parts) + '</br>'
     return framework.replace('__CONTENT__', content)
