@@ -12,18 +12,9 @@ import datetime
 import time
 from omegaconf import DictConfig
 
-# Make PDF extraction robust in restricted CI/runtime environments.
-try:
-    import pymupdf.layout as _pymupdf_layout
-    _pymupdf_layout.activate()
-except Exception as e:
-    logger.warning(f"Failed to activate pymupdf.layout, continue without layout mode: {e}")
-
-try:
-    import pymupdf4llm
-except Exception as e:
-    pymupdf4llm = None
-    logger.warning(f"Failed to import pymupdf4llm, PDF full-text extraction will be skipped: {e}")
+# NOTE:
+# Keep PyMuPDF imports lazy so HTML-only workflows don't trigger MuPDF/cms warnings
+# at module import time.
 
 def extract_tex_code_from_tar(file_path:str, paper_id:str) -> dict[str,str]:
     try:
@@ -96,8 +87,17 @@ def extract_tex_code_from_tar(file_path:str, paper_id:str) -> dict[str,str]:
     return file_contents
 
 def extract_markdown_from_pdf(file_path:str) -> str:
-    if pymupdf4llm is None:
-        raise RuntimeError("pymupdf4llm is unavailable")
+    try:
+        import pymupdf.layout as _pymupdf_layout
+        _pymupdf_layout.activate()
+    except Exception as e:
+        logger.warning(f"Failed to activate pymupdf.layout, continue without layout mode: {e}")
+
+    try:
+        import pymupdf4llm
+    except Exception as e:
+        raise RuntimeError(f"pymupdf4llm is unavailable: {e}")
+
     return pymupdf4llm.to_markdown(file_path,use_ocr=False,header=False,footer=False,ignore_code=True)
 
 def extract_text_from_arxiv_html(html_url:str) -> str:

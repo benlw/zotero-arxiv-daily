@@ -51,7 +51,7 @@ class ArxivRetriever(BaseRetriever):
         candidates = []
         summary = getattr(raw_paper, "summary", "") or ""
         comment = getattr(raw_paper, "comment", "") or ""
-        candidates.extend(re.findall(r"https?://[^\s\]\)\}",]+", summary + "\n" + comment))
+        candidates.extend(re.findall(r'https?://[^\s\]\)\}",]+', summary + "\n" + comment))
 
         for link in getattr(raw_paper, "links", []) or []:
             href = getattr(link, "href", None)
